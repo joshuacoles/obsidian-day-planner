@@ -1,6 +1,22 @@
 import { Moment } from "moment";
+import { TFile } from "obsidian";
 import { getAllDailyNotes, getDailyNote } from "obsidian-daily-notes-interface";
 import { derived, Readable } from "svelte/store";
+
+export function computeVisibleDailyNotes(
+  layoutReady: boolean,
+  visibleDays: Moment[],
+): TFile[] {
+  if (!layoutReady) {
+    return [];
+  }
+
+  const allDailyNotes = getAllDailyNotes();
+
+  return visibleDays
+    .map((day) => getDailyNote(day, allDailyNotes))
+    .filter(Boolean);
+}
 
 /**
  *
@@ -16,15 +32,7 @@ export function useVisibleDailyNotes(
   return derived(
     [layoutReady, visibleDays, debouncedTaskUpdateTrigger],
     ([$layoutReady, $visibleDays]) => {
-      if (!$layoutReady) {
-        return [];
-      }
-
-      const allDailyNotes = getAllDailyNotes();
-
-      return $visibleDays
-        .map((day) => getDailyNote(day, allDailyNotes))
-        .filter(Boolean);
+      return computeVisibleDailyNotes($layoutReady, $visibleDays);
     },
   );
 }
