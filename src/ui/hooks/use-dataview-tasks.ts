@@ -9,6 +9,18 @@ interface UseDataviewTasksProps {
   settingsStore: Readable<DayPlannerSettings>;
 }
 
+export function computeDataviewTasks(
+  $listsFromVisibleDailyNotes: DataArray<STask>,
+  $tasksFromExtraSources: DataArray<STask>,
+  $settingsStore: DayPlannerSettings,
+) {
+  const allTasks = [...$listsFromVisibleDailyNotes, ...$tasksFromExtraSources];
+
+  return $settingsStore.showCompletedTasks
+    ? allTasks
+    : allTasks.filter((sTask: STask) => !sTask.completed);
+}
+
 export function useDataviewTasks({
   listsFromVisibleDailyNotes,
   tasksFromExtraSources,
@@ -16,15 +28,6 @@ export function useDataviewTasks({
 }: UseDataviewTasksProps) {
   return derived(
     [listsFromVisibleDailyNotes, tasksFromExtraSources, settingsStore],
-    ([$listsFromVisibleDailyNotes, $tasksFromExtraSources, $settingsStore]) => {
-      const allTasks = [
-        ...$listsFromVisibleDailyNotes,
-        ...$tasksFromExtraSources,
-      ];
-
-      return $settingsStore.showCompletedTasks
-        ? allTasks
-        : allTasks.filter((sTask: STask) => !sTask.completed);
-    },
+    (args) => computeDataviewTasks(...args),
   );
 }

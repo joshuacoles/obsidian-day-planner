@@ -11,6 +11,25 @@ interface UseTasksFromExtraSourcesProps {
   dataviewFacade: DataviewFacade;
 }
 
+export function computeTasksFromExtraSources(
+  dataviewFacade: DataviewFacade,
+  visibleDailyNotes: TFile[],
+  $dataviewSource: string,
+) {
+  const noAdditionalSource = $dataviewSource.trim().length === 0;
+
+  if (noAdditionalSource) {
+    return [];
+  }
+
+  const queryFromExtraSources = query.andNot(
+    $dataviewSource,
+    query.anyOf(visibleDailyNotes),
+  );
+
+  return dataviewFacade.getAllTasksFrom(queryFromExtraSources);
+}
+
 export function useTasksFromExtraSources({
   dataviewSource,
   debouncedTaskUpdateTrigger,
@@ -19,19 +38,11 @@ export function useTasksFromExtraSources({
 }: UseTasksFromExtraSourcesProps) {
   return derived(
     [dataviewSource, debouncedTaskUpdateTrigger],
-    ([$dataviewSource]) => {
-      const noAdditionalSource = $dataviewSource.trim().length === 0;
-
-      if (noAdditionalSource) {
-        return [];
-      }
-
-      const queryFromExtraSources = query.andNot(
+    ([$dataviewSource]) =>
+      computeTasksFromExtraSources(
+        dataviewFacade,
+        get(visibleDailyNotes),
         $dataviewSource,
-        query.anyOf(get(visibleDailyNotes)),
-      );
-
-      return dataviewFacade.getAllTasksFrom(queryFromExtraSources);
-    },
+      ),
   );
 }
