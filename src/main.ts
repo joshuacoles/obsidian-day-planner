@@ -1,3 +1,4 @@
+import { Moment } from "moment";
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import { get, writable, Writable } from "svelte/store";
 
@@ -13,9 +14,14 @@ import { ObsidianFacade } from "./service/obsidian-facade";
 import { PlanEditor } from "./service/plan-editor";
 import { STaskEditor } from "./service/stask-editor";
 import { DayPlannerSettings, defaultSettings } from "./settings";
-import { ObsidianContext } from "./types";
+import { ObsidianContext, TasksForDay } from "./types";
 import StatusBarWidget from "./ui/components/status-bar-widget.svelte";
 import { ConfirmationModal } from "./ui/confirmation-modal";
+import { computeDataviewTasks } from "./ui/hooks/use-dataview-tasks";
+import { computeListsFromVisibleDailyNotes } from "./ui/hooks/use-lists-from-visible-daily-notes";
+import { computeTasksFromExtraSources } from "./ui/hooks/use-tasks-from-extra-sources";
+import { computeVisibleDailyNotes } from "./ui/hooks/use-visible-daily-notes";
+import { computeVisibleDataviewTasks } from "./ui/hooks/use-visible-dataview-tasks";
 import { ReleaseNotesModal } from "./ui/release-notes-modal";
 import { DayPlannerSettingsTab } from "./ui/settings-tab";
 import TimelineView from "./ui/timeline-view";
@@ -26,6 +32,7 @@ import { createShowPreview } from "./util/create-show-preview";
 import { createDailyNoteIfNeeded } from "./util/daily-notes";
 import { notifyAboutStartedTasks } from "./util/notify-about-started-tasks";
 import { getUpdateTrigger } from "./util/store";
+import { mergeTasks } from "./util/tasks-utils";
 
 export default class DayPlanner extends Plugin {
   settings!: () => DayPlannerSettings;
@@ -55,6 +62,41 @@ export default class DayPlanner extends Plugin {
     this.handleNewPluginVersion();
 
     await this.initTimelineLeafSilently();
+  }
+
+  /**
+   * Get all tasks for the visible days, including tasks from the daily notes
+   * and extra sources. Does not include tasks from events.
+   * @param visibleDays - days that are currently visible in the view
+   * @returns all tasks for the visible days, grouped by day
+   */
+  public getTasks(visibleDays: Moment[]): Record<string, TasksForDay> {
+    const visibleDailyNotes = computeVisibleDailyNotes(true, visibleDays);
+
+    const listsFromVisibleDailyNotes = computeListsFromVisibleDailyNotes(
+      visibleDailyNotes,
+      this.dataviewFacade,
+    );
+
+    const tasksFromExtraSources = computeTasksFromExtraSources(
+      this.dataviewFacade,
+      visibleDailyNotes,
+      this.settings().dataviewSource,
+    );
+
+    const dataviewTasks = computeDataviewTasks(
+      listsFromVisibleDailyNotes,
+      tasksFromExtraSources,
+      this.settings(),
+    );
+
+    const visibleDataviewTasks = computeVisibleDataviewTasks(
+      visibleDays,
+      dataviewTasks,
+      this.settings(),
+    );
+
+    return mergeTasks(visibleDataviewTasks, []);
   }
 
   async onunload() {
